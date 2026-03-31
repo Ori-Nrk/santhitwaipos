@@ -77,8 +77,15 @@ export const weeklySalesData: SalesData[] = []
 
 export const categorySalesData: CategorySales[] = []
 
-export function formatCurrency(amount: number): string {
-  return `${amount.toLocaleString()} Ks`
+// export function formatCurrency(amount: number): string {
+//   return `${amount.toLocaleString()} Ks`
+// }
+
+export function formatCurrency(amount: number | undefined | null): string {
+  if (amount === undefined || amount === null || isNaN(Number(amount))) {
+    return '0 Ks'
+  }
+  return `${Number(amount).toLocaleString()} Ks`
 }
 
 export function calculateSellingPrice(costPrice: number, profitMargin: number): number {

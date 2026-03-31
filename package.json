@@ -42,13 +42,18 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
+    "cookie": "^1.1.1",
     "date-fns": "4.1.0",
-    "dotenv": "^17.3.1",
     "embla-carousel-react": "8.6.0",
+    "escpos": "^3.0.0-alpha.6",
+    "escpos-usb": "^3.0.0-alpha.4",
+    "iconv-lite": "^0.7.2",
     "input-otp": "1.4.2",
+    "jose": "^6.2.2",
     "lucide-react": "^0.564.0",
     "next": "16.1.6",
     "next-themes": "^0.4.6",
+    "node-thermal-printer": "^4.6.0",
     "pg": "^8.20.0",
     "react": "19.2.4",
     "react-day-picker": "9.13.2",
@@ -69,7 +74,7 @@
     "@types/react-dom": "19.2.3",
     "postcss": "^8.5",
     "tailwindcss": "^4.2.0",
-    "tw-animate-css": "^1.3.3",
+    "tw-animate-css": "1.3.3",
     "typescript": "5.7.3"
   }
 }

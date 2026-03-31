@@ -20,6 +20,8 @@ import {
 import { Search } from 'lucide-react'
 
 export default function POSPage() {
+  const [customers, setCustomers] = useState<any[]>([])
+  const [selectedCustomer, setSelectedCustomer] = useState<number | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [cart, setCart] = useState<CartItem[]>([])
@@ -32,30 +34,92 @@ export default function POSPage() {
   const [showReceipt, setShowReceipt] = useState(false)
   const [lastTransaction, setLastTransaction] = useState<Transaction | null>(null)
 
+  const fetchCustomers = async () => {
+  try {
+    const res = await fetch('/api/customers', {
+      credentials: 'include',
+    })
+
+    if (!res.ok) throw new Error('Failed to load customers')
+
+    const data = await res.json()
+    setCustomers(data || [])
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+const fetchProducts = async () => {
+  try {
+    setLoading(true)
+
+    const response = await fetch('/api/products', {
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      const err = await response.text()
+      console.error('Products API error:', err)
+      throw new Error('Failed to load products')
+    }
+
+    const data = await response.json()
+    console.log('POS products:', data)
+
+    setProducts(data || [])
+  } catch (error) {
+    console.error(error)
+    alert('Error loading products')
+    setProducts([])
+  } finally {
+    setLoading(false)
+  }
+}
   useEffect(() => {
     fetchProducts()
+    fetchCustomers()
   }, [])
 
-  const fetchProducts = async () => {
-    try {
-      console.log('[v0] Fetching products from database...')
-      const response = await fetch('/api/products')
-      
-      if (!response.ok) {
-        throw new Error('Failed to load products')
-      }
-      
-      const data = await response.json()
-      console.log('[v0] Products loaded from database:', data.length)
-      setProducts(data || [])
-    } catch (error) {
-      console.error('[v0] Failed to load products:', error)
-      setProducts([])
-    } finally {
-      setLoading(false)
-    }
-  }
 
+//  const fetchProducts = async () => {
+//   try {
+//     setLoading(true) // ✅ start loading
+
+//     const response = await fetch('/api/products', {
+//       credentials: 'include',
+//     })
+
+//     if (!response.ok) {
+//       const err = await response.text()
+//       console.error('Products API error:', err)
+//       throw new Error('Failed to load products')
+//     }
+//   const fetchCustomers = async () => {
+//   try {
+//     const res = await fetch('/api/customers', {
+//       credentials: 'include',
+//     })
+
+//     if (!res.ok) throw new Error('Failed to load customers')
+
+//     const data = await res.json()
+//     setCustomers(data || [])
+//   } catch (err) {
+//     console.error(err)
+//   }
+// }
+//     const data = await response.json()
+//     console.log('POS products:', data) // 👈 debug
+
+//     setProducts(data || [])
+//   } catch (error) {
+//     console.error(error)
+//     alert('Error loading products')
+//     setProducts([]) // fallback
+//   } finally {
+//     setLoading(false) // ✅ THIS WAS MISSING
+//   }
+// }
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory
@@ -120,15 +184,16 @@ export default function POSPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          receiptNumber,
-          items: cart,
-          subtotal,
-          tax,
-          total,
-          paymentMethod,
-          cashReceived: paymentMethod === 'cash' ? cashReceived : null,
-          change: paymentMethod === 'cash' ? change : null,
-        }),
+  receiptNumber,
+  items: cart,
+  subtotal,
+  tax,
+  total,
+  paymentMethod,
+  cashReceived: paymentMethod === 'cash' ? cashReceived : null,
+  change: paymentMethod === 'cash' ? change : null,
+  customerId: selectedCustomer || null   // ✅ THIS FIXES EVERYTHING
+}),
       })
 
       const data = await response.json()
@@ -264,6 +329,27 @@ export default function POSPage() {
               </div>
             </div>
 
+<div>
+  <label className="block text-sm font-medium mb-2">Customer</label>
+
+  <select
+    className="w-full border rounded-md p-2"
+    value={selectedCustomer || ''}
+    onChange={(e) =>
+      setSelectedCustomer(
+        e.target.value ? Number(e.target.value) : null
+      )
+    }
+  >
+    <option value="">Walk-in Customer</option>
+
+    {customers.map((c) => (
+      <option key={c.id} value={c.id}>
+        {c.name}
+      </option>
+    ))}
+  </select>
+</div>
             <div>
               <label className="block text-sm font-medium mb-2">Payment Method</label>
               <div className="flex gap-2">

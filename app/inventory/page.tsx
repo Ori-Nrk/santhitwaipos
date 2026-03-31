@@ -1,8 +1,9 @@
+
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
 import { Product } from '@/lib/types'
-import { categories, formatCurrency, calculateSellingPrice, calculateProfitAmount, calculateProfitMargin } from '@/lib/data'
+import { formatCurrency, calculateSellingPrice, calculateProfitAmount, calculateProfitMargin } from '@/lib/data'
 import { AppSidebar } from '@/components/app-sidebar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,9 +32,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
-import { Package, Search, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react'
+import { Package, Search, Plus, Pencil, Trash2, AlertTriangle, X } from 'lucide-react'
 
-const PROFIT_PRESETS = [20, 30, 50, 75, 100]
+const PROFIT_PRESETS = [5, 10]
 
 interface Supplier {
   id: number
@@ -47,46 +48,76 @@ interface ProductFormData extends Partial<Product> {
 export default function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [categories, setCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('All')
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [formData, setFormData] = useState<ProductFormData>({})
+  const [showCreateCategory, setShowCreateCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
 
   useEffect(() => {
     fetchData()
   }, [])
 
   const fetchData = async () => {
-    try {
-      setLoading(true)
-      console.log('[v0] Fetching products and suppliers...')
-      const [productsRes, suppliersRes] = await Promise.all([
-        fetch('/api/products'),
-        fetch('/api/suppliers'),
-      ])
-      
-      if (!productsRes.ok || !suppliersRes.ok) {
-        throw new Error('Failed to load data')
-      }
-      
-      const productsData = await productsRes.json()
-      const suppliersData = await suppliersRes.json()
-      console.log('[v0] Loaded:', productsData.length, 'products and', suppliersData.length, 'suppliers')
-      
-      setProducts(productsData || [])
-      setSuppliers(suppliersData || [])
-    } catch (error) {
-      console.error('[v0] Failed to fetch data:', error)
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-      alert('Error loading data: ' + errorMsg)
-      setProducts([])
-      setSuppliers([])
-    } finally {
-      setLoading(false)
+  try {
+    setLoading(true)
+
+    const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
+  fetch('/api/products', { credentials: 'include' }),
+  fetch('/api/suppliers', { credentials: 'include' }),
+  fetch('/api/categories', { credentials: 'include' }),
+  
+])
+if (categoriesRes.ok) {
+  const categoriesData = await categoriesRes.json()
+
+  setCategories([
+    'All',
+    ...categoriesData.map((c: any) => c.name),
+  ])
+} else {
+  console.error('Categories failed')
+  setCategories(['All'])
+}
+
+    if (!productsRes.ok || !suppliersRes.ok) {
+      const pErr = await productsRes.text()
+      const sErr = await suppliersRes.text()
+
+      console.error('Products error:', pErr)
+      console.error('Suppliers error:', sErr)
+
+      throw new Error('Failed to load data')
     }
+
+    const productsData = await productsRes.json()
+    const suppliersData = await suppliersRes.json()
+
+    // setProducts(productsData)
+    const mappedProducts = productsData.map((p: any) => ({
+  id: p.id,
+  name: p.name,
+  costPrice: p.costPrice ?? p.cost_price ?? 0,
+  price: p.price ?? p.selling_price ?? 0,
+  profitMargin: p.profitMargin ?? p.profit_margin ?? 0,
+  category: p.category ?? 'General',
+  stock: p.stock ?? 0,
+  sku: p.sku ?? '',
+  reorderLevel: p.reorderLevel ?? p.reorder_level ?? 0,
+}))
+
+setProducts(mappedProducts)
+    setSuppliers(suppliersData)
+  } catch (error) {
+    alert('Error loading data')
+  } finally {
+    setLoading(false)
   }
+}
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -102,8 +133,18 @@ export default function InventoryPage() {
     (p) => p.reorderLevel && p.stock <= p.reorderLevel
   )
 
-  const totalValue = products.reduce((sum, p) => sum + p.price * p.stock, 0)
-  const totalCost = products.reduce((sum, p) => sum + p.costPrice * p.stock, 0)
+  // const totalValue = products.reduce((sum, p) => sum + p.price * p.stock, 0)
+  // const totalCost = products.reduce((sum, p) => sum + p.costPrice * p.stock, 0)
+
+  const totalValue = products.reduce(
+  (sum, p) => sum + (p.price || 0) * (p.stock || 0),
+  0
+)
+
+const totalCost = products.reduce(
+  (sum, p) => sum + (p.costPrice || 0) * (p.stock || 0),
+  0
+)
   const totalProfit = totalValue - totalCost
 
   const handleOpenAdd = () => {
@@ -245,6 +286,92 @@ export default function InventoryPage() {
     }
   }
 
+  // const handleCreateCategory = () => {
+  //   if (!newCategoryName.trim()) {
+  //     alert('Please enter a category name')
+  //     return
+  //   }
+
+  //   if (categories.includes(newCategoryName)) {
+  //     alert('This category already exists')
+  //     return
+  //   }
+
+  //   const newCategories = [...categories, newCategoryName]
+    // setCategories(newCategories)
+
+//     const handleCreateCategory = async () => {
+//   if (!newCategoryName.trim()) {
+//     alert('Please enter a category name')
+//     return
+//   }
+
+//   try {
+//     const res = await fetch('/api/categories', {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({ name: newCategoryName }),
+//     })
+
+//     const data = await res.json()
+
+//     if (!res.ok) throw new Error(data.error)
+
+//     setCategories((prev) => [...prev, data.name])
+//     setFormData({ ...formData, category: data.name })
+
+//     setNewCategoryName('')
+//     setShowCreateCategory(false)
+//   } catch (err) {
+//     alert('Failed to create category')
+//   }
+// }
+//     setFormData({ ...formData, category: newCategoryName })
+//     setNewCategoryName('')
+//     setShowCreateCategory(false)
+//   }
+
+const handleCreateCategory = async () => {
+  if (!newCategoryName.trim()) {
+    alert('Please enter a category name')
+    return
+  }
+
+  if (categories.includes(newCategoryName)) {
+    alert('This category already exists')
+    return
+  }
+
+  try {
+    const res = await fetch('/api/categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newCategoryName }),
+      credentials: 'include',
+    })
+
+    const data = await res.json()
+
+    if (!res.ok) throw new Error(data.error)
+
+    // ✅ update UI immediately
+    setCategories((prev) => [...prev, data.name])
+
+    // ✅ auto select new category
+    setFormData((prev) => ({
+      ...prev,
+      category: data.name,
+    }))
+
+    setNewCategoryName('')
+    setShowCreateCategory(false)
+
+  } catch (err) {
+    console.error(err)
+    alert('Failed to create category')
+  }
+}
+
   return (
     <div className="min-h-screen bg-background">
       <AppSidebar />
@@ -332,6 +459,14 @@ export default function InventoryPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowCreateCategory(true)}
+                  title="Create new category"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -343,7 +478,7 @@ export default function InventoryPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>SKU</TableHead>
+                      <TableHead>Product Code</TableHead>
                       <TableHead>Product Name</TableHead>
                       <TableHead className="text-right">Cost Price</TableHead>
                       <TableHead className="text-right">Selling Price</TableHead>
@@ -416,30 +551,40 @@ export default function InventoryPage() {
             </Field>
             <div className="grid grid-cols-2 gap-4">
               <Field>
-                <FieldLabel>SKU</FieldLabel>
+                <FieldLabel>Product Code</FieldLabel>
                 <Input
                   value={formData.sku || ''}
                   onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
                 />
               </Field>
-              <Field>
+              <div className="space-y-2">
                 <FieldLabel>Category</FieldLabel>
-                <Select
-                  value={formData.category || 'Groceries'}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.filter((c) => c !== 'All').map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
+                <div className="flex gap-2">
+                  <Select
+                    value={formData.category || 'Groceries'}
+                    onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.filter((c) => c !== 'All').map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowCreateCategory(true)}
+                    title="Create new category"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
 
             <Field>
@@ -555,6 +700,41 @@ export default function InventoryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={showCreateCategory} onOpenChange={setShowCreateCategory}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Create New Category</DialogTitle>
+          </DialogHeader>
+          <FieldGroup>
+            <Field>
+              <FieldLabel>Category Name *</FieldLabel>
+              <Input
+                placeholder="e.g., Office Supplies, Tools, etc."
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleCreateCategory()
+                  }
+                }}
+              />
+            </Field>
+          </FieldGroup>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCreateCategory(false)
+                setNewCategoryName('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreateCategory}>Create Category</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
-  )
+    )
 }

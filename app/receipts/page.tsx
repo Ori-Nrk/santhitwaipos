@@ -48,7 +48,9 @@ export default function ReceiptsPage() {
     try {
       setLoading(true)
       console.log('[v0] Fetching transactions...')
-      const response = await fetch('/api/transactions')
+      const response = await fetch('/api/transactions', {
+  credentials: 'include'
+})
       if (!response.ok) {
         throw new Error('Failed to load transactions')
       }
@@ -73,92 +75,144 @@ export default function ReceiptsPage() {
       t.receiptNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.items.some((item) => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
   )
+const handlePrint = async (transaction: Transaction) => {
+  const printWindow = window.open('', '', 'width=300,height=600')
 
-  const handlePrint = (transaction: Transaction) => {
-    const printWindow = window.open('', '', 'width=300,height=600')
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Receipt - ${transaction.receiptNumber}</title>
-            <style>
-              body {
-                font-family: 'Courier New', monospace;
-                font-size: 12px;
-                padding: 10px;
-                max-width: 280px;
-                margin: 0 auto;
-              }
-              .header { text-align: center; margin-bottom: 10px; }
-              .header h1 { font-size: 18px; margin: 0; }
-              .header p { margin: 2px 0; font-size: 11px; }
-              .divider { border-top: 1px dashed #000; margin: 8px 0; }
-              .item { display: flex; justify-content: space-between; margin: 4px 0; }
-              .total-row { font-weight: bold; }
-              .footer { text-align: center; margin-top: 15px; font-size: 11px; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>San Thit Wai</h1>
-              <p>POS System</p>
-              <p>123 Main Street, Yangon</p>
-              <p>Tel: 09-123-456-789</p>
-            </div>
-            <div class="divider"></div>
-            <p>Receipt: ${transaction.receiptNumber}</p>
-            <p>Date: ${transaction.date.toLocaleString()}</p>
-            <p>Payment: ${transaction.paymentMethod.toUpperCase()}</p>
-            <div class="divider"></div>
-            ${transaction.items
-              .map(
-                (item) => `
-              <div class="item">
-                <span>${item.name} x${item.quantity}</span>
-                <span>${formatCurrency(item.price * item.quantity)}</span>
-              </div>
-            `
-              )
-              .join('')}
-            <div class="divider"></div>
-            <div class="item">
-              <span>Subtotal</span>
-              <span>${formatCurrency(transaction.subtotal)}</span>
-            </div>
-            <div class="item">
-              <span>Tax (5%)</span>
-              <span>${formatCurrency(transaction.tax)}</span>
-            </div>
-            <div class="item total-row">
-              <span>TOTAL</span>
-              <span>${formatCurrency(transaction.total)}</span>
-            </div>
-            ${
-              transaction.paymentMethod === 'cash'
-                ? `
-              <div class="divider"></div>
-              <div class="item">
-                <span>Cash Received</span>
-                <span>${formatCurrency(transaction.cashReceived || 0)}</span>
-              </div>
-              <div class="item total-row">
-                <span>Change</span>
-                <span>${formatCurrency(transaction.change || 0)}</span>
-              </div>
-            `
-                : ''
+  if (printWindow) {
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Receipt - ${transaction.receiptNumber}</title>
+          <style>
+            body {
+              font-family: 'Courier New', monospace;
+              font-size: 12px;
+              padding: 10px;
+              max-width: 280px;
+              margin: 0 auto;
             }
-            <div class="footer">
-              <p>Thank you for shopping with us!</p>
-              <p>Please come again</p>
-            </div>
-          </body>
-        </html>
-      `)
-      printWindow.document.close()
-      printWindow.print()
-    }
+            .header { text-align: center; margin-bottom: 10px; }
+            .header h1 { font-size: 18px; margin: 0; }
+            .header p { margin: 2px 0; font-size: 11px; }
+            .divider { border-top: 1px dashed #000; margin: 8px 0; }
+            .item { display: flex; justify-content: space-between; margin: 4px 0; }
+            .total-row { font-weight: bold; }
+            .footer { text-align: center; margin-top: 15px; font-size: 11px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>San Thit Wai</h1>
+            <p>POS System</p>
+          </div>
+          <p>Receipt: ${transaction.receiptNumber}</p>
+        </body>
+      </html>
+    `)
+
+    printWindow.document.close()
+
+    // ✅ THIS WAS MISSING
+    printWindow.focus()
+    printWindow.print()
   }
+
+  // 🔥 backend print (POS)
+  try {
+    await fetch('/api/print', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(transaction),
+    })
+  } catch (err) {
+    console.error(err)
+  }
+}
+  // const handlePrint = (transaction: Transaction) => {
+  //   const printWindow = window.open('', '', 'width=300,height=600')
+  //   if (printWindow) {
+  //     printWindow.document.write(`
+  //       <html>gi
+  //         <head>
+  //           <title>Receipt - ${transaction.receiptNumber}</title>
+  //           <style>
+  //             body {
+  //               font-family: 'Courier New', monospace;
+  //               font-size: 12px;
+  //               padding: 10px;
+  //               max-width: 280px;
+  //               margin: 0 auto;
+  //             }
+  //             .header { text-align: center; margin-bottom: 10px; }
+  //             .header h1 { font-size: 18px; margin: 0; }
+  //             .header p { margin: 2px 0; font-size: 11px; }
+  //             .divider { border-top: 1px dashed #000; margin: 8px 0; }
+  //             .item { display: flex; justify-content: space-between; margin: 4px 0; }
+  //             .total-row { font-weight: bold; }
+  //             .footer { text-align: center; margin-top: 15px; font-size: 11px; }
+  //           </style>
+  //         </head>
+  //         <body>
+  //           <div class="header">
+  //             <h1>San Thit Wai</h1>
+  //             <p>POS System</p>
+  //             <p>123 Main Street, Yangon</p>
+  //             <p>Tel: 09-123-456-789</p>
+  //           </div>
+  //           <div class="divider"></div>
+  //           <p>Receipt: ${transaction.receiptNumber}</p>
+  //           <p>Date: ${transaction.date.toLocaleString()}</p>
+  //           <p>Payment: ${transaction.paymentMethod.toUpperCase()}</p>
+  //           <div class="divider"></div>
+  //           ${transaction.items
+  //             .map(
+  //               (item) => `
+  //             <div class="item">
+  //               <span>${item.name} x${item.quantity}</span>
+  //               <span>${formatCurrency(item.price * item.quantity)}</span>
+  //             </div>
+  //           `
+  //             )
+  //             .join('')}
+  //           <div class="divider"></div>
+  //           <div class="item">
+  //             <span>Subtotal</span>
+  //             <span>${formatCurrency(transaction.subtotal)}</span>
+  //           </div>
+  //           <div class="item">
+  //             <span>Tax (5%)</span>
+  //             <span>${formatCurrency(transaction.tax)}</span>
+  //           </div>
+  //           <div class="item total-row">
+  //             <span>TOTAL</span>
+  //             <span>${formatCurrency(transaction.total)}</span>
+  //           </div>
+  //           ${
+  //             transaction.paymentMethod === 'cash'
+  //               ? `
+  //             <div class="divider"></div>
+  //             <div class="item">
+  //               <span>Cash Received</span>
+  //               <span>${formatCurrency(transaction.cashReceived || 0)}</span>
+  //             </div>
+  //             <div class="item total-row">
+  //               <span>Change</span>
+  //               <span>${formatCurrency(transaction.change || 0)}</span>
+  //             </div>
+  //           `
+  //               : ''
+  //           }
+  //           <div class="footer">
+  //             <p>Thank you for shopping with us!</p>
+  //             <p>Please come again</p>
+  //           </div>
+  //         </body>
+  //       </html>
+  //     `)
+  //     printWindow.document.close()
+  //     printWindow.print()
+  //   }
+  // }
 
   const handleDeleteClick = (transaction: Transaction) => {
     setTransactionToDelete(transaction)
